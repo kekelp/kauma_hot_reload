@@ -1,25 +1,13 @@
-use libloading::{Library, Symbol};
+use hot_reload_macro::hot_reload;
 
 pub struct State {
     pub counter: usize,
 }
 
-// fn do_stuff(state: &mut State) {
-//     // Load the shared library
-//     let lib = unsafe {
-//         Library::new("hot_stuff/target/debug/libhot_test2.so").unwrap()
-//     };
-
-//     // Load the function symbol
-//     unsafe {
-//         let func: Symbol<unsafe extern "C" fn(&mut State)> = lib.get(b"do_stuff").unwrap();
-//         func(state); // Call the function
-//     }
-// }
-#[no_mangle]
+#[hot_reload]
 pub fn do_stuff(state: &mut State) {
     state.counter += 1;
-    println!("doing stuff in iteration {}", state.counter);
+    println!("Doing stuff in iteration {}", state.counter);
 }
 
 fn main() {

@@ -1,11 +1,14 @@
-[package]
-name = "hot_test2"
-version = "0.1.0"
-edition = "2021"
-
 [dependencies]
 libloading = "0.8.6"
+
+[dependencies.hot_reload_macro]
+path = "../hot_reload_macro"
 
 [lib]
 crate-type = ["cdylib"]
 path = "src/main.rs"
+
+[package]
+edition = "2021"
+name = "hot_test2"
+version = "0.1.0"

@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 libloading = "0.8.6"
+hot_reload_macro = { path = "hot_reload_macro" }
