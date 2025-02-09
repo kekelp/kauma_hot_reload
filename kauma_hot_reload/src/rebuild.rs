@@ -2,7 +2,7 @@ use std::env;
 use std::path::PathBuf;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
-use std::process::{Command, exit};
+use std::process::Command;
 use std::os::unix::fs::symlink;
 use toml::{de, value::{Table, Value}};
 
@@ -38,17 +38,15 @@ pub fn rebuild() -> io::Result<()> {
     fs::copy(cargo_toml_path, &hot_build_cargo_toml_path)?;
 
 
-    // Parse the Cargo.toml file in the build dir
+    // Parse the main Cargo.toml file
     let mut cargo_toml_file = File::open(&hot_build_cargo_toml_path)?;
     let mut cargo_toml_content = String::new();
     cargo_toml_file.read_to_string(&mut cargo_toml_content)?;
 
     let mut parsed_toml: Table = de::from_str(&cargo_toml_content).unwrap();
 
-    // Modify the package name
+    // Modify the Cargo.toml
     modify_package_name(&mut parsed_toml);
-
-    // Fix path dependencies and add `[lib]` section
     fix_path_dependencies(&mut parsed_toml);
     add_lib_section(&mut parsed_toml);
 

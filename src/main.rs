@@ -10,11 +10,6 @@ pub fn do_stuff(state: &mut State) {
     println!("Doing stuff in iteration {}", state.counter);
 }
 
-pub fn do_stuff2(state: &mut State) {
-    state.counter += 1;
-    println!("Nilling stuff in iteration {}", state.counter);
-}
-
 fn main() {
     let mut state = State { counter: 0 };
     loop {

@@ -1,6 +1,4 @@
 mod rebuild;
-use std::path::PathBuf;
-
 use crate::rebuild::rebuild;
 use rebuild::*;
 
@@ -8,13 +6,13 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, ItemFn};
 
-fn guess_shared_library_filename(base_name: &str) -> PathBuf {
+fn guess_shared_library_filename(base_name: &str) -> String {
     if cfg!(target_os = "linux") {
-        PathBuf::from(format!("lib{}.so", base_name))
+        format!("lib{}.so", base_name)
     } else if cfg!(target_os = "macos") {
-        PathBuf::from(format!("lib{}.dylib", base_name))
+        format!("lib{}.dylib", base_name)
     } else if cfg!(target_os = "windows") {
-        PathBuf::from(format!("{}.dll", base_name))
+        format!("{}.dll", base_name)
     } else {
         panic!("Unsupported OS");
     }
@@ -24,25 +22,35 @@ fn guess_shared_library_filename(base_name: &str) -> PathBuf {
 pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
 
-    let fn_name = &input_fn.sig.ident;
+    let fn_signature = &input_fn.sig;
     let fn_block = &input_fn.block;
+    let args = &fn_signature.inputs;
 
-    // Check if we are in the main crate or the shared object crate
+    let mut arg_names = Vec::new();
+
+    for arg in args {
+        if let syn::FnArg::Typed(pat) = arg {
+            if let syn::Pat::Ident(ident) = *pat.pat.clone() {
+                arg_names.push(ident.ident);
+            }
+        }
+    }
+    
+    // Check if we are building the main crate or the shared library
     let is_in_main_crate = std::env::var(KAUMA_ENV_VAR).is_err();
 
     // If we're in the main crate, generate the code to load the shared library
     if is_in_main_crate {
-        // Run a rebuild at compile time. This sounds like it could mess something up.
+        // Run a first rebuild at compile time. Not sure if this is always ok.
         let _ = rebuild();
 
         let cargo_target_dir = cargo_target_dir();
-        let cargo_target_dir = cargo_target_dir.to_str();
+        let cargo_target_dir = cargo_target_dir.to_str().unwrap_or_else(|| panic!("Invalid path"));
 
         let shared_lib = guess_shared_library_filename(KAUMA_SHARED_LIB_NAME);
-        let shared_lib = shared_lib.to_str();
 
         let expanded = quote! {
-            pub fn #fn_name(state: &mut State) {
+            pub #fn_signature {
                 // Try to load the shared library
                 let lib_path = std::path::Path::new(#cargo_target_dir)
                     .join(#KAUMA_HOT_BUILD_DIR)
@@ -55,35 +63,33 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                     Ok(lib) => lib,
                     Err(_) => {
                         // In case of failure, run the regular function.
-                        eprintln!("Hot reload failed: Couldn't find the .so file at {:?}.", lib_path);
+                        eprintln!("Hot reload failed: Couldn't find the shared library at {:?}.", lib_path);
                         return #fn_block;
                     }
                 };
 
                 // Try to load the function symbol
-                let func: Result<libloading::Symbol<unsafe extern "C" fn(&mut State)>, _> = unsafe {
+                let func: Result<libloading::Symbol<unsafe extern "C" fn(#args)>, _> = unsafe {
                     lib.get(b"do_stuff")
                 };
                 let func = match func {
                     Ok(func) => func,
                     Err(_) => {
-                        eprintln!("Hot reload failed: Couldn't find the function in the .so file.");
+                        eprintln!("Hot reload failed: Couldn't find the function in the shared library.");
                         return #fn_block;
                     }
                 };
 
-                // run the loaded function
-                unsafe { func(state); }
+                // Run the loaded function
+                unsafe { func(#(#arg_names),*); }
             }
         };
         expanded.into()
     } else {
-        // In the .so crate, just add #[no_mangle]
+        // When building the shared object, just add #[no_mangle]
         let expanded = quote! {
             #[no_mangle]
-            pub fn #fn_name(state: &mut State) {
-                #fn_block
-            }
+            #input_fn
         };
         expanded.into()
     }

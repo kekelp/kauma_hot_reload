@@ -11,7 +11,7 @@ name = "kauma_rebuild"
 path = "src/main.rs"
 
 [dependencies]
-syn = { version = "1.0", features = ["full"] }
+syn = { version = "1.0", features = ["full", "extra-traits"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 toml = "0.8.20"
