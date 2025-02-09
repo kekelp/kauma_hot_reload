@@ -1,4 +1,4 @@
-use hot_reload_macro::hot_reload;
+use hot_reload::hot_reload;
 
 pub struct State {
     pub counter: usize,

@@ -1,8 +1,8 @@
 [dependencies]
 libloading = "0.8.6"
 
-[dependencies.hot_reload_macro]
-path = "../hot_reload_macro"
+[dependencies.hot_reload]
+path = "../hot_reload"
 
 [lib]
 crate-type = ["cdylib"]

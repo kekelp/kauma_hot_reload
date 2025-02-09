@@ -1,3 +1,6 @@
+mod rebuild;
+use crate::rebuild::rebuild;
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, ItemFn};
@@ -14,6 +17,10 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
     // If we're in the main crate, generate the code to load the shared library
     if is_in_main_crate {
+
+        // Run a rebuild at compile time. This sounds like it could mess something up.
+        let _ = rebuild();
+
         let expanded = quote! {
             pub fn #fn_name(state: &mut State) {
                 // Try to load the shared library
@@ -22,7 +29,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                     Ok(lib) => lib,
                     Err(_) => {
                         // In case of failure, run the regular function.
-                        eprintln!("Hot reload failed: Couldn't find the .so file. Is the hot reload server running?.");
+                        eprintln!("Hot reload failed: Couldn't find the .so file.");
                         return #fn_block;
                     }
                 };
@@ -35,7 +42,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 let func = match func {
                     Ok(func) => func,
                     Err(_) => {
-                        eprintln!("Hot reload failed: Couldn't find the function in the .so file. Is the hot reload server running?.");
+                        eprintln!("Hot reload failed: Couldn't find the function in the .so file.");
                         return #fn_block;
                     }
                 };
