@@ -1,6 +1,8 @@
 mod rebuild;
 use crate::rebuild::rebuild;
 use rebuild::*;
+use proc_macro2::{Ident, Span};
+
 
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
@@ -18,7 +20,6 @@ fn guess_shared_library_filename(base_name: &str) -> String {
     }
 }
 
-use proc_macro2::{Ident, Span};
 
 fn get_argument_names(args: &Punctuated<FnArg, Comma>) -> proc_macro2::TokenStream {
     let mut arg_names = Vec::new();
@@ -75,8 +76,14 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
     let fn_signature = &input_fn.sig;
     let fn_block = &input_fn.block;
-    let args = &fn_signature.inputs;
+    let return_type = &fn_signature.output;
 
+    let return_type = match return_type {
+        syn::ReturnType::Type(_, ty) => quote! { #ty },
+        syn::ReturnType::Default => quote! { () },
+    };
+
+    let args = &fn_signature.inputs;
     
     let arg_types = get_argument_types(args);
     
@@ -116,7 +123,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 };
 
                 // Try to load the function symbol
-                let func: Result<libloading::Symbol<unsafe extern "C" fn(#arg_types)>, _> = unsafe {
+                let func: Result<libloading::Symbol<unsafe extern "C" fn(#arg_types) -> #return_type>, _> = unsafe {
                     lib.get(b"do_stuff")
                 };
                 let Ok(func) = func else {
@@ -125,7 +132,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 };
 
                 // Run the loaded function
-                unsafe { func(#arg_names); }
+                return unsafe { func(#arg_names) };
             }
         };
         expanded.into()
