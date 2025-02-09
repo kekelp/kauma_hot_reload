@@ -1,9 +1,7 @@
 mod rebuild;
 use crate::rebuild::rebuild;
-use rebuild::*;
 use proc_macro2::{Ident, Span};
-
-
+use rebuild::*;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, punctuated::Punctuated, token::Comma, FnArg, ItemFn, Pat};
@@ -19,7 +17,6 @@ fn guess_shared_library_filename(base_name: &str) -> String {
         panic!("Unsupported OS");
     }
 }
-
 
 fn get_argument_names(args: &Punctuated<FnArg, Comma>) -> proc_macro2::TokenStream {
     let mut arg_names = Vec::new();
@@ -84,11 +81,11 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     let args = &fn_signature.inputs;
-    
+
     let arg_types = get_argument_types(args);
-    
+
     let arg_names = get_argument_names(args);
-    
+
     // Check if we are building the main crate or the shared library
     let is_in_main_crate = std::env::var(KAUMA_ENV_VAR).is_err();
 
@@ -98,7 +95,9 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
         let _ = rebuild();
 
         let cargo_target_dir = cargo_target_dir();
-        let cargo_target_dir = cargo_target_dir.to_str().unwrap_or_else(|| panic!("Invalid path"));
+        let cargo_target_dir = cargo_target_dir
+            .to_str()
+            .unwrap_or_else(|| panic!("Invalid path"));
 
         let shared_lib = guess_shared_library_filename(KAUMA_SHARED_LIB_NAME);
 
@@ -119,7 +118,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 let lib = unsafe { libloading::Library::new(lib_path.clone()) };
                 let Ok(lib) = lib else {
                     eprintln!("Hot reload failed: Couldn't find the shared library at {:?}.", lib_path);
-                    return regular_function();         
+                    return regular_function();
                 };
 
                 // Try to load the function symbol
@@ -128,7 +127,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 };
                 let Ok(func) = func else {
                     eprintln!("Hot reload failed: Couldn't find the shared library at {:?}.", lib_path);
-                    return regular_function();            
+                    return regular_function();
                 };
 
                 // Run the loaded function
