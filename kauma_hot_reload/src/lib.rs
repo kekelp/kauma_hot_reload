@@ -1,10 +1,24 @@
 mod rebuild;
+use std::path::PathBuf;
+
 use crate::rebuild::rebuild;
 use rebuild::*;
 
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, ItemFn};
+
+fn guess_shared_library_filename(base_name: &str) -> PathBuf {
+    if cfg!(target_os = "linux") {
+        PathBuf::from(format!("lib{}.so", base_name))
+    } else if cfg!(target_os = "macos") {
+        PathBuf::from(format!("lib{}.dylib", base_name))
+    } else if cfg!(target_os = "windows") {
+        PathBuf::from(format!("{}.dll", base_name))
+    } else {
+        panic!("Unsupported OS");
+    }
+}
 
 #[proc_macro_attribute]
 pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
@@ -24,17 +38,19 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
         let cargo_target_dir = cargo_target_dir();
         let cargo_target_dir = cargo_target_dir.to_str();
 
+        let shared_lib = guess_shared_library_filename(KAUMA_SHARED_LIB_NAME);
+        let shared_lib = shared_lib.to_str();
+
         let expanded = quote! {
             pub fn #fn_name(state: &mut State) {
                 // Try to load the shared library
                 let lib_path = std::path::Path::new(#cargo_target_dir)
-                    .join(#KAUMA_BUILD_DIR)
+                    .join(#KAUMA_HOT_BUILD_DIR)
                     .join("target")
                     .join("debug")
-                    .join("libhot_test2.so");
+                    .join(#shared_lib);
 
                 let lib = unsafe { libloading::Library::new(lib_path.clone()) };
-
                 let lib = match lib {
                     Ok(lib) => lib,
                     Err(_) => {
@@ -48,7 +64,6 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 let func: Result<libloading::Symbol<unsafe extern "C" fn(&mut State)>, _> = unsafe {
                     lib.get(b"do_stuff")
                 };
-
                 let func = match func {
                     Ok(func) => func,
                     Err(_) => {

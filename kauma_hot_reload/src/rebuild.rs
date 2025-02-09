@@ -6,8 +6,9 @@ use std::process::{Command, exit};
 use std::os::unix::fs::symlink;
 use toml::{de, value::{Table, Value}};
 
-pub const KAUMA_BUILD_DIR: &str = "kauma_hot_reload";
+pub const KAUMA_HOT_BUILD_DIR: &str = "kauma_hot_reload";
 pub const KAUMA_ENV_VAR: &str = "KAUMA_HOT_RELOAD_BUILD";
+pub const KAUMA_SHARED_LIB_NAME: &str = "kauma_shared_lib";
 
 pub fn cargo_target_dir() -> PathBuf {
     return env::var("CARGO_TARGET_DIR").map(PathBuf::from)
@@ -16,58 +17,65 @@ pub fn cargo_target_dir() -> PathBuf {
 
 pub fn rebuild() -> io::Result<()> {
     // Create build directory if it doesn't exist
-    let kauma_build_dir = cargo_target_dir().join(KAUMA_BUILD_DIR);
+    let hot_build_dir = cargo_target_dir().join(KAUMA_HOT_BUILD_DIR);
     
-    if !fs::metadata(kauma_build_dir.clone()).is_ok() {
-        fs::create_dir(kauma_build_dir.clone())?;
+    if !fs::metadata(hot_build_dir.clone()).is_ok() {
+        fs::create_dir(hot_build_dir.clone())?;
     }
 
     // Create a symlink from to the "src" folder
     let current_dir = env::current_dir()?;
     let src_dir = current_dir.join("src");
-    let hot_stuff_src_dir = kauma_build_dir.join("src");
+    let build_src_dir = hot_build_dir.join("src");
     
-    if !fs::metadata(&hot_stuff_src_dir).is_ok() {
-        symlink(src_dir, hot_stuff_src_dir.clone())?;
+    if !fs::metadata(&build_src_dir).is_ok() {
+        symlink(src_dir, build_src_dir.clone())?;
     }
 
-    // Copy Cargo.toml from the current directory to the build dit
+    // Copy Cargo.toml from the current directory to the build dir
     let cargo_toml_path = current_dir.join("Cargo.toml");
-    let hot_stuff_cargo_toml_path = kauma_build_dir.join("Cargo.toml");
-    fs::copy(cargo_toml_path, &hot_stuff_cargo_toml_path)?;
+    let hot_build_cargo_toml_path = hot_build_dir.join("Cargo.toml");
+    fs::copy(cargo_toml_path, &hot_build_cargo_toml_path)?;
 
 
     // Parse the Cargo.toml file in the build dir
-    let mut cargo_toml_file = File::open(&hot_stuff_cargo_toml_path)?;
+    let mut cargo_toml_file = File::open(&hot_build_cargo_toml_path)?;
     let mut cargo_toml_content = String::new();
     cargo_toml_file.read_to_string(&mut cargo_toml_content)?;
 
     let mut parsed_toml: Table = de::from_str(&cargo_toml_content).unwrap();
+
+    // Modify the package name
+    modify_package_name(&mut parsed_toml);
 
     // Fix path dependencies and add `[lib]` section
     fix_path_dependencies(&mut parsed_toml);
     add_lib_section(&mut parsed_toml);
 
     // Write the modified Cargo.toml back in the build dir
-    let mut hot_stuff_cargo_toml = File::create(&hot_stuff_cargo_toml_path)?;
+    let mut hot_build_cargo_toml = File::create(&hot_build_cargo_toml_path)?;
     let modified_toml = toml::to_string(&parsed_toml).unwrap();
-    hot_stuff_cargo_toml.write_all(modified_toml.as_bytes())?;
+    hot_build_cargo_toml.write_all(modified_toml.as_bytes())?;
 
-    // Run `cargo build` in "hot_stuff" with HOT_RELOAD_BUILD=true
-    let status = Command::new("cargo")
+    // Run `cargo build` in the build dir with HOT_RELOAD_BUILD=true
+    let _status = Command::new("cargo")
         .env(KAUMA_ENV_VAR, "true")
-        .current_dir(kauma_build_dir)
+        .current_dir(hot_build_dir)
         .arg("build")
-        .status()?;
-
-    if !status.success() {
-        exit(1);
-    }
+        .status();
 
     Ok(())
 }
 
-// Function to fix up path dependencies by adding a ".." prefix
+fn modify_package_name(toml_table: &mut Table) {
+    if let Some(package) = toml_table.get_mut("package") {
+        if let Some(package_table) = package.as_table_mut() {
+            // Modify the "name" field in the [package] section
+            package_table.insert("name".to_string(), Value::String(KAUMA_SHARED_LIB_NAME.to_string()));
+        }
+    }
+}
+
 fn fix_path_dependencies(toml_table: &mut Table) {
     if let Some(dependencies) = toml_table.get_mut("dependencies") {
         if let Some(dep_table) = dependencies.as_table_mut() {
@@ -86,7 +94,6 @@ fn fix_path_dependencies(toml_table: &mut Table) {
     }
 }
 
-// Function to add the `[lib]` section to the Cargo.toml
 fn add_lib_section(toml_table: &mut Table) {
     let mut lib_section = Table::new();
     lib_section.insert("crate-type".to_string(), Value::Array(vec![Value::String("cdylib".to_string())]));

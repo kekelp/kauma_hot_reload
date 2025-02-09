@@ -5,6 +5,8 @@ use notify_debouncer_full::{notify::*, new_debouncer, DebounceEventResult};
 use std::time::Duration;
 
 fn main() -> Result<()> {
+
+    println!("Rebuilding hot reload functions and watching for changes...");
     
     let _ = rebuild();
     
