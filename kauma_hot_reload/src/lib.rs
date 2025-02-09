@@ -20,7 +20,7 @@ fn guess_shared_library_filename(base_name: &str) -> String {
 
 use proc_macro2::{Ident, Span};
 
-fn get_argument_names(args: &Punctuated<FnArg, Comma>) -> Vec<Ident> {
+fn get_argument_names(args: &Punctuated<FnArg, Comma>) -> proc_macro2::TokenStream {
     let mut arg_names = Vec::new();
 
     for arg in args {
@@ -38,10 +38,10 @@ fn get_argument_names(args: &Punctuated<FnArg, Comma>) -> Vec<Ident> {
         }
     }
 
-    arg_names
+    quote! { #(#arg_names),* }
 }
 
-fn get_argument_types(args: &Punctuated<FnArg, Comma>) -> Vec<proc_macro2::TokenStream> {
+fn get_argument_types(args: &Punctuated<FnArg, Comma>) -> proc_macro2::TokenStream {
     let mut arg_types = Vec::new();
 
     for arg in args {
@@ -66,7 +66,7 @@ fn get_argument_types(args: &Punctuated<FnArg, Comma>) -> Vec<proc_macro2::Token
         }
     }
 
-    arg_types
+    quote! { #(#arg_types),* }
 }
 
 #[proc_macro_attribute]
@@ -115,7 +115,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 };
 
                 // Try to load the function symbol
-                let func: Result<libloading::Symbol<unsafe extern "C" fn(#(#arg_types),*)>, _> = unsafe {
+                let func: Result<libloading::Symbol<unsafe extern "C" fn(#arg_types)>, _> = unsafe {
                     lib.get(b"do_stuff")
                 };
 
@@ -128,7 +128,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 };
 
                 // Run the loaded function
-                unsafe { func(#(#arg_names),*); }
+                unsafe { func(#arg_names); }
             }
         };
         expanded.into()
