@@ -56,7 +56,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
         // In the .so crate, just add #[no_mangle]
         let expanded = quote! {
             #[no_mangle]
-            pub extern "C" fn #fn_name(state: &mut State) {
+            pub fn #fn_name(state: &mut State) {
                 #fn_block
             }
         };

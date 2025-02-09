@@ -1,26 +1,25 @@
 mod rebuild;
 use rebuild::*;
 
-use notify::{recommended_watcher, Event, RecursiveMode, Result, Watcher};
-use std::{path::Path, sync::mpsc};
+use notify_debouncer_full::{notify::*, new_debouncer, DebounceEventResult};
+use std::time::Duration;
 
 fn main() -> Result<()> {
-    rebuild();
-
-    let (tx, rx) = mpsc::channel::<Result<Event>>();
-
-    let mut watcher = recommended_watcher(tx)?;
-
-    watcher.watch(Path::new("src"), RecursiveMode::Recursive)?;
-
-    for res in rx {
-        match res {
+    
+    let _ = rebuild();
+    
+    let mut debouncer = new_debouncer(Duration::from_secs_f32(0.5), None, |result: DebounceEventResult| {
+        match result {
             Err(e) => println!("Error watching for code changes: {:?}", e),
             Ok(_) => {
                 let _ = rebuild();
             }
         }
-    }
-
-    Ok(())
+    })?;
+    
+    // Add a path to be watched. All files and directories at that path and
+    // below will be monitored for changes.
+    debouncer.watch("src", RecursiveMode::Recursive)?;
+    
+    loop {}
 }
