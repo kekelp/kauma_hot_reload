@@ -97,6 +97,11 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
         let expanded = quote! {
             pub #fn_signature {
+
+                let mut regular_function = || {
+                    #fn_block
+                };
+
                 // Try to load the shared library
                 let lib_path = std::path::Path::new(#cargo_target_dir)
                     .join(#KAUMA_HOT_BUILD_DIR)
@@ -110,7 +115,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                     Err(_) => {
                         // In case of failure, run the regular function.
                         eprintln!("Hot reload failed: Couldn't find the shared library at {:?}.", lib_path);
-                        return #fn_block;
+                        return regular_function();
                     }
                 };
 
@@ -123,7 +128,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                     Ok(func) => func,
                     Err(_) => {
                         eprintln!("Hot reload failed: Couldn't find the function in the shared library.");
-                        return #fn_block;
+                        return regular_function();
                     }
                 };
 
