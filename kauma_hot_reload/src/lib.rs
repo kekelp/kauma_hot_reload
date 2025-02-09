@@ -110,26 +110,18 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                     .join(#shared_lib);
 
                 let lib = unsafe { libloading::Library::new(lib_path.clone()) };
-                let lib = match lib {
-                    Ok(lib) => lib,
-                    Err(_) => {
-                        // In case of failure, run the regular function.
-                        eprintln!("Hot reload failed: Couldn't find the shared library at {:?}.", lib_path);
-                        return regular_function();
-                    }
+                let Ok(lib) = lib else {
+                    eprintln!("Hot reload failed: Couldn't find the shared library at {:?}.", lib_path);
+                    return regular_function();         
                 };
 
                 // Try to load the function symbol
                 let func: Result<libloading::Symbol<unsafe extern "C" fn(#arg_types)>, _> = unsafe {
                     lib.get(b"do_stuff")
                 };
-
-                let func = match func {
-                    Ok(func) => func,
-                    Err(_) => {
-                        eprintln!("Hot reload failed: Couldn't find the function in the shared library.");
-                        return regular_function();
-                    }
+                let Ok(func) = func else {
+                    eprintln!("Hot reload failed: Couldn't find the shared library at {:?}.", lib_path);
+                    return regular_function();            
                 };
 
                 // Run the loaded function
