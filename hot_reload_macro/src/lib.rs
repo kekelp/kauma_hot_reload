@@ -1,5 +1,3 @@
-// src/lib.rs in the hot_reload_macro crate
-
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, ItemFn};
@@ -18,17 +16,32 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
     if is_in_main_crate {
         let expanded = quote! {
             pub fn #fn_name(state: &mut State) {
-                // Load the shared library
-                let lib = unsafe {
-                    libloading::Library::new("hot_stuff/target/debug/libhot_test2.so").unwrap()
+                // Try to load the shared library
+                let lib = unsafe { libloading::Library::new("hot_stuff/target/debug/libhot_test2.so") };
+                let lib = match lib {
+                    Ok(lib) => lib,
+                    Err(_) => {
+                        // In case of failure, run the regular function.
+                        eprintln!("Hot reload failed: Couldn't find the .so file. Is the hot reload server running?.");
+                        return #fn_block;
+                    }
                 };
 
-                // Load the function symbol
-                unsafe {
-                    // todo, put #fn_name
-                    let func: libloading::Symbol<unsafe extern "C" fn(&mut State)> = lib.get(b"do_stuff").unwrap();
-                    func(state); // Call the function
-                }
+                // Try to load the function symbol
+                let func: Result<libloading::Symbol<unsafe extern "C" fn(&mut State)>, _> = unsafe {
+                    lib.get(b"do_stuff")
+                };
+
+                let func = match func {
+                    Ok(func) => func,
+                    Err(_) => {
+                        eprintln!("Hot reload failed: Couldn't find the function in the .so file. Is the hot reload server running?.");
+                        return #fn_block;
+                    }
+                };
+
+                // run the loaded function
+                unsafe { func(state); }
             }
         };
         expanded.into()
