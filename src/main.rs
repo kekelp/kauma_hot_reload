@@ -4,16 +4,18 @@ pub struct State {
     pub counter: usize,
 }
 
-#[hot_reload]
-pub fn do_stuff(state: &mut State) {
-    state.counter += 1;
-    println!("Doing stuff in iteration {}", state.counter);
+impl State {
+    #[hot_reload]
+    pub fn do_stuff(&mut self) {
+        self.counter += 1;
+        println!("Doing stuff in iteration {}", self.counter);
+    }
 }
 
 fn main() {
     let mut state = State { counter: 0 };
     loop {
-        do_stuff(&mut state);
+        state.do_stuff();
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }

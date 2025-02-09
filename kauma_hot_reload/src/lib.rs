@@ -3,8 +3,8 @@ use crate::rebuild::rebuild;
 use rebuild::*;
 
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{parse_macro_input, ItemFn};
+use quote::{quote, ToTokens};
+use syn::{parse_macro_input, punctuated::Punctuated, token::Comma, FnArg, ItemFn, Pat};
 
 fn guess_shared_library_filename(base_name: &str) -> String {
     if cfg!(target_os = "linux") {
@@ -18,6 +18,57 @@ fn guess_shared_library_filename(base_name: &str) -> String {
     }
 }
 
+use proc_macro2::{Ident, Span};
+
+fn get_argument_names(args: &Punctuated<FnArg, Comma>) -> Vec<Ident> {
+    let mut arg_names = Vec::new();
+
+    for arg in args {
+        match arg {
+            // Handle `self`, `&self`, or `&mut self`
+            FnArg::Receiver(_) => {
+                arg_names.push(Ident::new("self", Span::call_site()));
+            }
+            // Handle named function parameters
+            FnArg::Typed(pat) => {
+                if let Pat::Ident(ident) = *pat.pat.clone() {
+                    arg_names.push(ident.ident);
+                }
+            }
+        }
+    }
+
+    arg_names
+}
+
+fn get_argument_types(args: &Punctuated<FnArg, Comma>) -> Vec<proc_macro2::TokenStream> {
+    let mut arg_types = Vec::new();
+
+    for arg in args {
+        match arg {
+            // Handle `self`, `&self`, or `&mut self`
+            FnArg::Receiver(receiver) => {
+                let self_type = if receiver.reference.is_some() {
+                    if receiver.mutability.is_some() {
+                        quote! { &mut Self }
+                    } else {
+                        quote! { &Self }
+                    }
+                } else {
+                    quote! { Self }
+                };
+                arg_types.push(self_type);
+            }
+            // Handle regular function parameters
+            FnArg::Typed(pat) => {
+                arg_types.push(pat.ty.to_token_stream());
+            }
+        }
+    }
+
+    arg_types
+}
+
 #[proc_macro_attribute]
 pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
@@ -26,15 +77,10 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let fn_block = &input_fn.block;
     let args = &fn_signature.inputs;
 
-    let mut arg_names = Vec::new();
-
-    for arg in args {
-        if let syn::FnArg::Typed(pat) = arg {
-            if let syn::Pat::Ident(ident) = *pat.pat.clone() {
-                arg_names.push(ident.ident);
-            }
-        }
-    }
+    
+    let arg_types = get_argument_types(args);
+    
+    let arg_names = get_argument_names(args);
     
     // Check if we are building the main crate or the shared library
     let is_in_main_crate = std::env::var(KAUMA_ENV_VAR).is_err();
@@ -69,9 +115,10 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 };
 
                 // Try to load the function symbol
-                let func: Result<libloading::Symbol<unsafe extern "C" fn(#args)>, _> = unsafe {
+                let func: Result<libloading::Symbol<unsafe extern "C" fn(#(#arg_types),*)>, _> = unsafe {
                     lib.get(b"do_stuff")
                 };
+
                 let func = match func {
                     Ok(func) => func,
                     Err(_) => {
