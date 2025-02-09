@@ -1,5 +1,5 @@
 [package]
-name = "hot_reload"
+name = "kauma_hot_reload"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,7 @@ edition = "2021"
 proc-macro = true
 
 [[bin]]
-name = "hot_reload_rebuild"
+name = "kauma_rebuild"
 path = "src/main.rs"
 
 [dependencies]

@@ -1,5 +1,5 @@
 mod rebuild;
-use rebuild::*;
+pub use rebuild::*;
 
 use notify_debouncer_full::{notify::*, new_debouncer, DebounceEventResult};
 use std::time::Duration;

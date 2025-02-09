@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 libloading = "0.8.6"
-hot_reload = { path = "hot_reload" }
+kauma_hot_reload = { path = "kauma_hot_reload" }

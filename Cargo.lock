@@ -63,21 +63,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
 
 [[package]]
-name = "hot_reload"
-version = "0.1.0"
-dependencies = [
- "notify-debouncer-full",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "toml",
-]
-
-[[package]]
 name = "hot_test2"
 version = "0.1.0"
 dependencies = [
- "hot_reload",
+ "kauma_hot_reload",
  "libloading",
 ]
 
@@ -109,6 +98,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e05c02b5e89bff3b946cedeca278abc628fe811e604f027c45a8aa3cf793d0eb"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "kauma_hot_reload"
+version = "0.1.0"
+dependencies = [
+ "notify-debouncer-full",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "toml",
 ]
 
 [[package]]

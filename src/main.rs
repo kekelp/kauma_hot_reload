@@ -1,4 +1,4 @@
-use hot_reload::hot_reload;
+use kauma_hot_reload::hot_reload;
 
 pub struct State {
     pub counter: usize,

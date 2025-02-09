@@ -1,5 +1,6 @@
 mod rebuild;
 use crate::rebuild::rebuild;
+use rebuild::*;
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -13,23 +14,32 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let fn_block = &input_fn.block;
 
     // Check if we are in the main crate or the shared object crate
-    let is_in_main_crate = std::env::var("HOT_RELOAD_BUILD").is_err();
+    let is_in_main_crate = std::env::var(KAUMA_ENV_VAR).is_err();
 
     // If we're in the main crate, generate the code to load the shared library
     if is_in_main_crate {
-
         // Run a rebuild at compile time. This sounds like it could mess something up.
         let _ = rebuild();
+
+        let cargo_target_dir = cargo_target_dir();
+        let cargo_target_dir = cargo_target_dir.to_str();
 
         let expanded = quote! {
             pub fn #fn_name(state: &mut State) {
                 // Try to load the shared library
-                let lib = unsafe { libloading::Library::new("hot_stuff/target/debug/libhot_test2.so") };
+                let lib_path = std::path::Path::new(#cargo_target_dir)
+                    .join(#KAUMA_BUILD_DIR)
+                    .join("target")
+                    .join("debug")
+                    .join("libhot_test2.so");
+
+                let lib = unsafe { libloading::Library::new(lib_path.clone()) };
+
                 let lib = match lib {
                     Ok(lib) => lib,
                     Err(_) => {
                         // In case of failure, run the regular function.
-                        eprintln!("Hot reload failed: Couldn't find the .so file.");
+                        eprintln!("Hot reload failed: Couldn't find the .so file at {:?}.", lib_path);
                         return #fn_block;
                     }
                 };
