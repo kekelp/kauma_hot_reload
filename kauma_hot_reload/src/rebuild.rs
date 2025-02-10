@@ -144,9 +144,9 @@ pub fn spawn_rebuild_process() {
         return;
     }
 
-    // Doing this in a thread isn't very good, because if the user tries to profile its process, the cargo rebuild processes might show up together with it and make the data uselss.
-    // At least on Unix, it should be possible to run this as a separate process. But we have to be careful to terminate it when the parent dies.
-    // todo: try this
+    // Doing this in a thread isn't very good, because if the user tries to profile its process, the directory watcher thread will show up inside it.
+    // The rebuilds are launched as separate `cargo build` processes, so they don't contribute to this problem.
+    // At least on Unix, it should be possible to do this as a child process, but that's probably not worth the trouble.
     std::thread::spawn(|| {
         watch_and_rebuild();
     });
