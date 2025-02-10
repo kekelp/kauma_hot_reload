@@ -104,12 +104,25 @@ dependencies = [
 name = "kauma_hot_reload"
 version = "0.1.0"
 dependencies = [
+ "kauma_proc_macro",
+ "kauma_shared_types",
  "notify-debouncer-full",
+ "toml",
+]
+
+[[package]]
+name = "kauma_proc_macro"
+version = "0.1.0"
+dependencies = [
+ "kauma_shared_types",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
- "toml",
 ]
+
+[[package]]
+name = "kauma_shared_types"
+version = "0.1.0"
 
 [[package]]
 name = "kqueue"

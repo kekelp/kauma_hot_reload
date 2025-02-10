@@ -2,22 +2,16 @@ use std::env;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::os::unix::fs::symlink;
-use std::path::PathBuf;
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
+use notify_debouncer_full::{notify::*, new_debouncer, DebounceEventResult};
+use std::time::Duration;
 use toml::{
     de,
     value::{Table, Value},
 };
 
-pub const KAUMA_HOT_BUILD_DIR: &str = "kauma_hot_reload";
-pub const KAUMA_ENV_VAR: &str = "KAUMA_HOT_RELOAD_BUILD";
-pub const KAUMA_SHARED_LIB_NAME: &str = "kauma_shared_lib";
-
-pub fn cargo_target_dir() -> PathBuf {
-    return env::var("CARGO_TARGET_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("target"));
-}
+use kauma_shared_types::*;
 
 pub fn rebuild() -> io::Result<()> {
     // Create build directory if it doesn't exist
@@ -107,4 +101,26 @@ fn add_lib_section(toml_table: &mut Table) {
     lib_section.insert("path".to_string(), Value::String("src/main.rs".to_string()));
 
     toml_table.insert("lib".to_string(), Value::Table(lib_section));
+}
+
+fn watch_and_rebuild() -> Result<()> {
+
+    println!("Rebuilding hot reload functions and watching for changes...");
+    
+    let _ = rebuild();
+    
+    let mut debouncer = new_debouncer(Duration::from_secs_f32(0.5), None, |result: DebounceEventResult| {
+        match result {
+            Err(e) => println!("Error watching for code changes: {:?}", e),
+            Ok(_) => {
+                let _ = rebuild();
+            }
+        }
+    })?;
+    
+    // Add a path to be watched. All files and directories at that path and
+    // below will be monitored for changes.
+    debouncer.watch("src", RecursiveMode::Recursive)?;
+    
+    loop {}
 }
