@@ -3,7 +3,7 @@ use kauma_common::*;
 use proc_macro2::{Ident, Span};
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, punctuated::Punctuated, token::Comma, FnArg, ItemFn, Pat};
+use syn::{parse_macro_input, punctuated::Punctuated, token::Comma, FnArg, ItemFn, LitByteStr, Pat};
 
 fn guess_shared_library_filename(base_name: &str) -> String {
     if cfg!(target_os = "linux") {
@@ -70,6 +70,9 @@ fn get_argument_types(args: &Punctuated<FnArg, Comma>) -> proc_macro2::TokenStre
 pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
 
+    let fn_name = &input_fn.sig.ident;
+    let symbol_name = LitByteStr::new(fn_name.to_string().as_bytes(), fn_name.span());
+
     let fn_signature = &input_fn.sig;
     let fn_block = &input_fn.block;
     let return_type = &fn_signature.output;
@@ -103,7 +106,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
         let shared_lib = guess_shared_library_filename(KAUMA_SHARED_LIB_NAME);
 
         let expanded = quote! {
-            pub #fn_signature {
+            #fn_signature {
 
                 kauma_hot_reload::spawn_rebuild_process();
 
@@ -130,7 +133,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
                 // Try to load the function symbol
                 let func: Result<kauma_hot_reload::LibLoadingSymbol<unsafe extern "C" fn(#arg_types) -> #return_type>, _> = unsafe {
-                    lib.get(b"do_stuff")
+                    lib.get(#symbol_name)
                 };
                 let func = match func {
                     Ok(func) => func,
