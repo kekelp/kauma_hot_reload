@@ -101,6 +101,8 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
         let expanded = quote! {
             pub #fn_signature {
 
+                kauma_hot_reload::spawn_rebuild_process();
+
                 let mut regular_function = || {
                     #fn_block
                 };

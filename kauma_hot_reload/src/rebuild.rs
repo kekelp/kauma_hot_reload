@@ -136,3 +136,19 @@ fn watch_and_rebuild() {
     
     loop {}
 }
+
+pub static REBUILD_PROCESS_STARTED: AtomicBool = AtomicBool::new(false);
+
+pub fn spawn_rebuild_process() {
+    if REBUILD_PROCESS_STARTED.swap(true, Ordering::SeqCst) {
+        return;
+    }
+
+    // Doing this in a thread isn't very good, because if the user tries to profile its process, the cargo rebuild processes might show up together with it and make the data uselss.
+    // At least on Unix, it should be possible to run this as a separate process. But we have to be careful to terminate it when the parent dies.
+    // todo: try this
+    std::thread::spawn(|| {
+        watch_and_rebuild();
+    });
+}
+
