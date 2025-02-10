@@ -103,24 +103,36 @@ fn add_lib_section(toml_table: &mut Table) {
     toml_table.insert("lib".to_string(), Value::Table(lib_section));
 }
 
-fn watch_and_rebuild() -> Result<()> {
+fn watch_and_rebuild() {
 
     println!("Rebuilding hot reload functions and watching for changes...");
     
     let _ = rebuild();
     
-    let mut debouncer = new_debouncer(Duration::from_secs_f32(0.5), None, |result: DebounceEventResult| {
+    let debouncer = new_debouncer(Duration::from_secs_f32(0.5), None, |result: DebounceEventResult| {
         match result {
             Err(e) => println!("Error watching for code changes: {:?}", e),
             Ok(_) => {
                 let _ = rebuild();
             }
         }
-    })?;
+    });
     
+    let mut debouncer = match debouncer {
+        Ok(debouncer) => debouncer,
+        Err(e) => {
+            println!("Error watching for code changes: {:?}", e);
+            return;
+        },
+    };
+
     // Add a path to be watched. All files and directories at that path and
     // below will be monitored for changes.
-    debouncer.watch("src", RecursiveMode::Recursive)?;
+    let res = debouncer.watch("src", RecursiveMode::Recursive);
+
+    if let Err(e) = res {
+        println!("Error watching for code changes: {:?}", e);
+    }
     
     loop {}
 }
