@@ -1,37 +1,70 @@
+use std::collections::HashSet;
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::os::unix::fs::symlink;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
+use cargo_metadata::camino::Utf8PathBuf;
+use cargo_metadata::{Metadata, MetadataCommand};
 use notify_debouncer_full::{notify::*, new_debouncer, DebounceEventResult};
 use std::time::Duration;
 use toml::{
     de,
     value::{Table, Value},
 };
+use crate::*;
 
-use kauma_common::*;
+pub fn cargo_target_dir() -> PathBuf {
+    return std::env::var("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("target"));
+}
+
+pub fn get_cargo_target_dirs(metadata: &Metadata) -> HashSet<Utf8PathBuf> {
+    let mut target_dirs = HashSet::new();
+
+    for package in &metadata.packages {
+        for target in &package.targets {
+            if let Some(parent) = target.src_path.parent() {
+                target_dirs.insert(parent.to_path_buf());
+            }
+        }
+    }
+
+    target_dirs
+}
 
 pub fn rebuild() -> io::Result<()> {
+    let metadata = MetadataCommand::new()
+        .exec()
+        .expect("Failed to retrieve Cargo metadata");
+
+    let project_root = metadata.workspace_root.clone();
+
     // Create build directory if it doesn't exist
-    let hot_build_dir = cargo_target_dir().join(KAUMA_HOT_BUILD_DIR);
+    let hot_build_dir = metadata.target_directory.join(KAUMA_HOT_BUILD_DIR);
 
     if !fs::metadata(hot_build_dir.clone()).is_ok() {
         fs::create_dir(hot_build_dir.clone())?;
     }
 
-    // Create a symlink from to the "src" folder
-    let current_dir = env::current_dir()?;
-    let src_dir = current_dir.join("src");
-    let build_src_dir = hot_build_dir.join("src");
+    // Create symlinks for all the folders containing code
+    // todo: see if this works if a target is in the project root outside of src/
+    let target_dirs = get_cargo_target_dirs(&metadata);
 
-    if !fs::metadata(&build_src_dir).is_ok() {
-        symlink(src_dir, build_src_dir.clone())?;
+    for src_dir in target_dirs {
+        let relative_path = src_dir.strip_prefix(env::current_dir()?).unwrap_or(&src_dir);
+        let build_src_dir = hot_build_dir.join(relative_path);
+
+        if !build_src_dir.exists() {
+            fs::create_dir_all(build_src_dir.parent().unwrap())?;
+            symlink(&src_dir, &build_src_dir)?;
+        }
     }
 
     // Copy Cargo.toml from the current directory to the build dir
-    let cargo_toml_path = current_dir.join("Cargo.toml");
+    let cargo_toml_path = project_root.join("Cargo.toml");
     let hot_build_cargo_toml_path = hot_build_dir.join("Cargo.toml");
     fs::copy(cargo_toml_path, &hot_build_cargo_toml_path)?;
 

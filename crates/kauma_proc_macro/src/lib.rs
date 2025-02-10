@@ -96,6 +96,10 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
             .to_str()
             .unwrap_or_else(|| panic!("Invalid path"));
 
+        // Run a first rebuild at proc-macro expansion time.
+        // This seems a bit crazy, but without this, the user program won't be able to reload anything for the first seconds after launching.
+        let _ = kauma_common::rebuild();
+
         let shared_lib = guess_shared_library_filename(KAUMA_SHARED_LIB_NAME);
 
         let expanded = quote! {
