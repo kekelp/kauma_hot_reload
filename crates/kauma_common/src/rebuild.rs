@@ -40,13 +40,13 @@ pub fn rebuild() -> io::Result<()> {
         .exec()
         .expect("Failed to retrieve Cargo metadata");
 
-    let project_root = metadata.workspace_root.clone();
+    let project_root = &metadata.workspace_root;
 
     // Create build directory if it doesn't exist
     let hot_build_dir = metadata.target_directory.join(KAUMA_HOT_BUILD_DIR);
 
-    if !fs::metadata(hot_build_dir.clone()).is_ok() {
-        fs::create_dir(hot_build_dir.clone())?;
+    if !fs::metadata(&hot_build_dir).is_ok() {
+        fs::create_dir(&hot_build_dir)?;
     }
 
     // Create symlinks for all the folders containing code
