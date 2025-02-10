@@ -63,14 +63,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
 
 [[package]]
-name = "hot_test2"
-version = "0.1.0"
-dependencies = [
- "kauma_hot_reload",
- "libloading",
-]
-
-[[package]]
 name = "indexmap"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -101,11 +93,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kauma_common"
+version = "0.1.0"
+
+[[package]]
 name = "kauma_hot_reload"
 version = "0.1.0"
 dependencies = [
+ "kauma_common",
  "kauma_proc_macro",
- "kauma_shared_types",
+ "libloading",
  "notify-debouncer-full",
  "toml",
 ]
@@ -114,15 +111,11 @@ dependencies = [
 name = "kauma_proc_macro"
 version = "0.1.0"
 dependencies = [
- "kauma_shared_types",
+ "kauma_common",
  "proc-macro2",
  "quote",
  "syn 1.0.109",
 ]
-
-[[package]]
-name = "kauma_shared_types"
-version = "0.1.0"
 
 [[package]]
 name = "kqueue"
