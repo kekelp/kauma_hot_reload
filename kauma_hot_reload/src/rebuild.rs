@@ -57,6 +57,8 @@ pub fn rebuild() -> io::Result<()> {
         .env(KAUMA_ENV_VAR, "true")
         .current_dir(hot_build_dir)
         .arg("build")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .status();
 
     Ok(())
