@@ -82,7 +82,8 @@ fn fix_path_dependencies(toml_table: &mut Table) {
             for (_, value) in dep_table.iter_mut() {
                 if let Some(path) = value.get_mut("path") {
                     if let Some(path_str) = path.as_str() {
-                        if !path_str.starts_with("..") {
+                        // todo: better check
+                        if !path_str.starts_with("/") {
                             // todo: this assumes that we're in a regular target/ directory.
                             let new_path = format!("../../{}", path_str);
                             *path = Value::String(new_path);
