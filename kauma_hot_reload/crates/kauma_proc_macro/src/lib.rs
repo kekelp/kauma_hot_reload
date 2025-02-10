@@ -114,14 +114,14 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                     .join("debug")
                     .join(#shared_lib);
 
-                let lib = unsafe { libloading::Library::new(lib_path.clone()) };
+                let lib = unsafe { kauma_hot_reload::LibLoadingLibrary::new(lib_path.clone()) };
                 let Ok(lib) = lib else {
                     eprintln!("Hot reload failed: Couldn't find the shared library at {:?}.", lib_path);
                     return regular_function();
                 };
 
                 // Try to load the function symbol
-                let func: Result<libloading::Symbol<unsafe extern "C" fn(#arg_types) -> #return_type>, _> = unsafe {
+                let func: Result<kauma_hot_reload::LibLoadingSymbol<unsafe extern "C" fn(#arg_types) -> #return_type>, _> = unsafe {
                     lib.get(b"do_stuff")
                 };
                 let Ok(func) = func else {

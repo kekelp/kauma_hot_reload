@@ -8,3 +8,4 @@ toml = "0.8.20"
 notify-debouncer-full = "0.5.0"
 kauma_proc_macro = { path = "crates/kauma_proc_macro" }
 kauma_shared_types = { path = "crates/kauma_shared_types" }
+libloading = "0.8.6"
