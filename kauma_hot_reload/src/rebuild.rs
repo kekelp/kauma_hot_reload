@@ -11,7 +11,7 @@ use toml::{
     value::{Table, Value},
 };
 
-use kauma_shared_types::*;
+use kauma_common::*;
 
 pub fn rebuild() -> io::Result<()> {
     // Create build directory if it doesn't exist

@@ -1,4 +1,4 @@
-use kauma_shared_types::*;
+use kauma_common::*;
 
 use proc_macro2::{Ident, Span};
 use proc_macro::TokenStream;
