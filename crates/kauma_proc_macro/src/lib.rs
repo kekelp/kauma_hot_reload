@@ -71,7 +71,8 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(input as ItemFn);
 
     let fn_name = &input_fn.sig.ident;
-    let symbol_name = LitByteStr::new(fn_name.to_string().as_bytes(), fn_name.span());
+    let fn_name_string = fn_name.to_string();
+    let symbol_name = LitByteStr::new(fn_name_string.as_bytes(), fn_name.span());
 
     let fn_signature = &input_fn.sig;
     let fn_block = &input_fn.block;
@@ -101,6 +102,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
         // Run a first rebuild at proc-macro expansion time.
         // This seems a bit crazy, but without this, the user program won't be able to reload anything for the first seconds after launching.
+        // And if anything goes wrong (not unlikely), at least the error will be visible in the editor, instead of just in stderr messages.
         let _ = kauma_common::rebuild();
 
         let shared_lib = guess_shared_library_filename(KAUMA_SHARED_LIB_NAME);
@@ -138,7 +140,7 @@ pub fn hot_reload(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 let func = match func {
                     Ok(func) => func,
                     Err(e) => {
-                        eprintln!("Hot reload failed: Couldn't find the function the shared library at {:?}.", lib_path);
+                        eprintln!("Hot reload failed: Couldn't find the function '{}' in the shared library ({:?}).", #fn_name_string, lib_path);
                         eprintln!("Error: {}", e);
                         return regular_function();    
                     }
