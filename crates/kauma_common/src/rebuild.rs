@@ -1,11 +1,9 @@
-use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{self, Read, Write};
 use std::os::unix::fs::symlink;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
-use cargo_metadata::camino::Utf8PathBuf;
-use cargo_metadata::{Metadata, MetadataCommand};
+use cargo_metadata::MetadataCommand;
 use notify_debouncer_full::{notify::*, new_debouncer, DebounceEventResult};
 use std::time::Duration;
 use toml::{
@@ -20,19 +18,6 @@ pub fn cargo_target_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("target"));
 }
 
-pub fn get_cargo_target_dirs(metadata: &Metadata) -> HashSet<Utf8PathBuf> {
-    let mut target_dirs = HashSet::new();
-
-    for package in &metadata.packages {
-        for target in &package.targets {
-            if let Some(parent) = target.src_path.parent() {
-                target_dirs.insert(parent.to_path_buf());
-            }
-        }
-    }
-
-    target_dirs
-}
 
 pub fn rebuild() -> io::Result<()> {
     let metadata = MetadataCommand::new()
@@ -45,13 +30,11 @@ pub fn rebuild() -> io::Result<()> {
     let hot_build_dir = metadata.target_directory.join(KAUMA_HOT_BUILD_DIR);
 
     if !fs::metadata(&hot_build_dir).is_ok() {
-        fs::create_dir(&hot_build_dir).expect("1");
+        fs::create_dir(&hot_build_dir).expect("Couldn't create target dir for hot reload build");
     }
 
     // Create symlinks for all the folders containing code
-    // todo: see if this works if a target is in the project root outside of src/
-    let target_dirs = get_cargo_target_dirs(&metadata);
-
+    // todo: should just symlink everything.
     let build_src_dir = hot_build_dir.join("src");
 
     if build_src_dir.exists() {
@@ -62,16 +45,6 @@ pub fn rebuild() -> io::Result<()> {
 
     symlink(&src_dir, &build_src_dir).expect("Couldn't create symbolic link for src directory");
 
-    // for src_dir in target_dirs {
-    //     let relative_path = src_dir.strip_prefix(env::current_dir().expect("2")).unwrap_or(&src_dir);
-    //     let build_src_dir = hot_build_dir.join(relative_path);
-
-    //     if !build_src_dir.exists() {
-    //         fs::create_dir_all(build_src_dir.parent().unwrap()).expect("4");
-    //         symlink(&src_dir, &build_src_dir).expect("5");
-    //     }
-    // }
-
     // Copy Cargo.toml from the current directory to the build dir
     let cargo_toml_path = project_root.join("Cargo.toml");
     let hot_build_cargo_toml_path = hot_build_dir.join("Cargo.toml");
@@ -80,9 +53,9 @@ pub fn rebuild() -> io::Result<()> {
     // Parse the main Cargo.toml file
     let mut cargo_toml_file = File::open(&hot_build_cargo_toml_path).expect("7");
     let mut cargo_toml_content = String::new();
-    cargo_toml_file.read_to_string(&mut cargo_toml_content).expect("8");
+    cargo_toml_file.read_to_string(&mut cargo_toml_content).unwrap();
 
-    let mut parsed_toml: Table = de::from_str(&cargo_toml_content).expect("9");
+    let mut parsed_toml: Table = de::from_str(&cargo_toml_content).unwrap();
 
     // Modify the Cargo.toml
     modify_package_name(&mut parsed_toml);
@@ -90,17 +63,17 @@ pub fn rebuild() -> io::Result<()> {
     add_lib_section(&mut parsed_toml);
 
     // Write the modified Cargo.toml back in the build dir
-    let mut hot_build_cargo_toml = File::create(&hot_build_cargo_toml_path).expect("10");
-    let modified_toml = toml::to_string(&parsed_toml).expect("11");
-    hot_build_cargo_toml.write_all(modified_toml.as_bytes()).expect("12");
+    let mut hot_build_cargo_toml = File::create(&hot_build_cargo_toml_path).unwrap();
+    let modified_toml = toml::to_string(&parsed_toml).unwrap();
+    hot_build_cargo_toml.write_all(modified_toml.as_bytes()).unwrap();
 
     // Run `cargo build` in the build dir with HOT_RELOAD_BUILD=true
     let _status = Command::new("cargo")
         .env(KAUMA_ENV_VAR, "true")
         .current_dir(hot_build_dir)
         .arg("build")
-        // .stdout(std::process::Stdio::null())
-        // .stderr(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
         .status();
 
     Ok(())
